@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Ruleta de América Latina</title>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#f9f9f9; text-align:center; }
+    .slide { display:none; }
+    .active { display:block; }
+    canvas { cursor:pointer; margin-top:20px; }
+    .pointer { position:absolute; top:10px; left:50%; transform:translateX(-50%) rotate(90deg); font-size:40px; color:red; z-index:10; }
+    .canvas-container { position:relative; display:inline-block; }
+    h1,h2 { margin-top:20px; }
+    #felicidades, #felicidades-ciudad, #final { font-size:22px; font-weight:bold; margin-top:20px; color:#27ae60; }
+    canvas.confetti { position:fixed; top:0; left:0; pointer-events:none; width:100vw; height:100vh; z-index:100; }
+  </style>
+</head>
+<body>
+
+<canvas id="confetti-canvas" class="confetti"></canvas>
+
+<div class="slide active" id="slide1">
+  <h1>🎡 Ruleta de Países de América Latina</h1>
+  <div class="canvas-container">
+    <div class="pointer">➼</div>
+    <canvas id="ruedaPais" width="400" height="400"></canvas>
+  </div>
+  <div id="felicidades"></div>
+</div>
+
+<div class="slide" id="slide2">
+  <h2>🎯 Ciudades Principales (CMYK)</h2>
+  <div class="canvas-container">
+    <div class="pointer">➼</div>
+    <canvas id="ruedaCiudad" width="400" height="400"></canvas>
+  </div>
+  <div id="felicidades-ciudad"></div>
+  <div id="final"></div>
+</div>
+
+<script>
+const paises = ["México","Argentina","Colombia","Chile","Perú","Venezuela","Ecuador","Bolivia","Guatemala","Honduras","El Salvador","Nicaragua","Costa Rica","Panamá","Cuba","Rep. Dominicana","Paraguay","Uruguay"];
+const ciudadesPorPais = {
+  "México": ["Ciudad de México","Guadalajara","Monterrey","Puebla","Tijuana","León","Querétaro","Mérida"],
+  "Argentina": ["Buenos Aires","Córdoba","Rosario","Mendoza","La Plata","Mar del Plata","Salta","Tucumán"],
+  "Colombia": ["Bogotá","Medellín","Cali","Barranquilla","Cartagena","Cúcuta","Bucaramanga","Pereira"],
+  "Chile": ["Santiago","Valparaíso","Concepción","Antofagasta","La Serena","Temuco","Iquique","Rancagua"],
+  "Perú": ["Lima","Arequipa","Cusco","Trujillo","Piura","Chiclayo","Tacna","Iquitos"],
+  "Venezuela": ["Caracas","Maracaibo","Valencia","Barquisimeto","Maracay","Maturín","Barcelona","Puerto La Cruz"],
+  "Ecuador": ["Quito","Guayaquil","Cuenca","Ambato","Machala","Portoviejo","Loja","Manta"],
+  "Bolivia": ["La Paz","Santa Cruz","Cochabamba","Sucre","Tarija","Oruro","Potosí","El Alto"],
+  "Guatemala": ["Ciudad de Guatemala","Quetzaltenango","Escuintla","Mixco","Cobán","Chimaltenango","Villa Nueva","Huehuetenango"],
+  "Honduras": ["Tegucigalpa","San Pedro Sula","La Ceiba","Choloma","Comayagua","El Progreso","Puerto Cortés","Danlí"],
+  "El Salvador": ["San Salvador","Santa Ana","Soyapango","San Miguel","Mejicanos","Apopa","Delgado","Ilopango"],
+  "Nicaragua": ["Managua","León","Granada","Masaya","Estelí","Chinandega","Jinotega","Matagalpa"],
+  "Costa Rica": ["San José","Alajuela","Cartago","Heredia","Liberia","Puntarenas","Limón","San Ramón"],
+  "Panamá": ["Ciudad de Panamá","Colón","David","La Chorrera","Santiago","Chitré","Arraiján","Penonomé"],
+  "Cuba": ["La Habana","Santiago de Cuba","Camagüey","Holguín","Guantánamo","Cienfuegos","Santa Clara","Pinar del Río"],
+  "Rep. Dominicana": ["Santo Domingo","Santiago","La Vega","San Cristóbal","San Pedro","Baní","Puerto Plata","Moca"],
+  "Paraguay": ["Asunción","Ciudad del Este","Encarnación","San Lorenzo","Luque","Capiatá","Pedro Juan Caballero","Lambaré"],
+  "Uruguay": ["Montevideo","Salto","Paysandú","Maldonado","Rivera","Las Piedras","Canelones","Tacuarembó"]
+};
+const coloresPais = ["#FF5733","#33FF57","#3357FF","#F1C40F","#9B59B6","#E67E22","#1ABC9C","#D35400","#2ECC71","#3498DB","#E74C3C","#F39C12","#8E44AD","#16A085","#27AE60","#2980B9","#C0392B","#BDC3C7"];
+const coloresCMYK = ["cyan","magenta","yellow","black","cyan","magenta","yellow","black"];
+let paisElegido="", ciudadElegida="";
+
+function dibujarRueda(canvas, opciones, colores, anguloInicio = 0, resaltar = -1) {
+  const ctx = canvas.getContext("2d"), size = canvas.width / 2, arc = 2 * Math.PI / opciones.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "14px sans-serif";
+  opciones.forEach((opc, i) => {
+    const ang = anguloInicio + i * arc;
+    ctx.beginPath();
+    ctx.fillStyle = colores[i % colores.length];
+    ctx.moveTo(size, size);
+    ctx.arc(size, size, size, ang, ang + arc);
+    ctx.fill();
+    if (i === resaltar) {
+      ctx.beginPath();
+      ctx.strokeStyle = "yellow";
+      ctx.lineWidth = 6;
+      ctx.moveTo(size, size);
+      ctx.arc(size, size, size, ang, ang + arc);
+      ctx.stroke();
+    }
+    ctx.save();
+    ctx.translate(size, size);
+    ctx.rotate(ang + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "white";
+    ctx.fillText(opc, size - 10, 5);
+    ctx.restore();
+  });
+}
+
+function girar(canvas, opciones, colores, callback) {
+  let angle = 0;
+  const dur = 12000 + Math.random() * 6000, start = performance.now();
+  const arc = 2 * Math.PI / opciones.length;
+  function anim(ts) {
+    const elapsed = ts - start, p = elapsed / dur;
+    const speed = Math.pow(1 - p, 3) * 0.2;
+    angle += speed;
+    // Calcular el ángulo que apunta la flecha (3PI/2)
+    const relativeAngle = (angle + 2 * Math.PI) % (2 * Math.PI);
+    const pointerAngle = (3 * Math.PI / 2 - relativeAngle + 2 * Math.PI) % (2 * Math.PI);
+    const index = Math.floor(pointerAngle / arc);
+    const resaltar = (dur - elapsed < 500) ? index : -1;
+    dibujarRueda(canvas, opciones, colores, angle, resaltar);
+    if (p < 1) requestAnimationFrame(anim);
+    else {
+      callback(opciones[index]);
+      lanzarConfetti();
+    }
+  }
+  requestAnimationFrame(anim);
+}
+
+function lanzarConfetti() {
+  const cv = document.getElementById("confetti-canvas"), ctx = cv.getContext("2d");
+  const W = cv.width = window.innerWidth, H = cv.height = window.innerHeight;
+  let piezas = Array.from({ length: 100 }, () => ({
+    x: Math.random() * W, y: Math.random() * H - H,
+    r: Math.random() * 6 + 4, d: Math.random() * 50 + 10,
+    color: `hsl(${Math.random() * 360}, 100%, 50%)`
+  }));
+  let frame = 0;
+  (function animar() {
+    ctx.clearRect(0, 0, W, H);
+    piezas.forEach(p => {
+      p.y += 2 + p.r / 3;
+      ctx.beginPath(); ctx.fillStyle = p.color;
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    });
+    frame++;
+    if (frame < 180) requestAnimationFrame(animar);
+  })();
+}
+
+const ruedaPais = document.getElementById("ruedaPais");
+dibujarRueda(ruedaPais, paises, coloresPais);
+ruedaPais.addEventListener("click", () => {
+  ruedaPais.style.pointerEvents = "none";
+  girar(ruedaPais, paises, coloresPais, pais => {
+    paisElegido = pais;
+    document.getElementById("felicidades").textContent = `¡Felicidades! Has seleccionado: ${pais}`;
+    setTimeout(() => {
+      document.getElementById("slide1").classList.remove("active");
+      document.getElementById("slide2").classList.add("active");
+      dibujarRueda(document.getElementById("ruedaCiudad"), ciudadesPorPais[pais], coloresCMYK);
+    }, 3000);
+  });
+});
+
+const ruedaCiudad = document.getElementById("ruedaCiudad");
+ruedaCiudad.addEventListener("click", () => {
+  ruedaCiudad.style.pointerEvents = "none";
+  const ciudades = ciudadesPorPais[paisElegido];
+  girar(ruedaCiudad, ciudades, coloresCMYK, ciudad => {
+    ciudadElegida = ciudad;
+    document.getElementById("felicidades-ciudad").textContent = `¡Felicidades! Has seleccionado: ${ciudad}`;
+    document.getElementById("final").textContent = `Has seleccionado: ${ciudad}, ${paisElegido}`;
+  });
+});
+</script>
+</body>
+</html>
